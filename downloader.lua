@@ -25,7 +25,7 @@ local preset = {
     branch = master,
     
     -- The local folder to save all the files to (defaults to '/')
-    path = /,
+    path = nil,
     
     -- Function to run before starting the download
     start = function()
