@@ -19,7 +19,7 @@ local preset = {
     -- The GitHub account name
     user = Biddimc,
     -- The GitHub repository name
-    repo = Biddi-OS,
+    repo = BiddiOS,
     
     -- The branch or commit tree to download (defaults to 'master')
     branch = master,
