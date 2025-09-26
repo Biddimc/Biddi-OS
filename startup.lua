@@ -22,9 +22,8 @@ local BAR_WIDTH = 10
 
 -- Buttons in der Taskbar
 local buttons = {
-    { name="music",   label="Music",  action=function() runApp("music") end },
     { name="SCADA",   label="SCADA",  action=function() runApp("scada_setup") end },
-    { name="uhr",     label="Uhr",    action=function() runApp("uhr") end },
+    { name="music",   label="Music",  action=function() runApp("music") end },
     { name="shell",   label="Shell",  action=function() shellWindow() end },
     { name="reboot",  label="Reboot", action=function() os.reboot() end },
     { name="off",     label="Off",    action=function() os.shutdown() end },
@@ -109,6 +108,11 @@ function runApp(name)
 
     if not fs.exists(path) then
         appWin.write("App nicht gefunden: "..name)
+        shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/scada_setup.lua osapps/scada_setup.lua")
+        sleep(2)
+        shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/ccmsi.lua osapps/ccmsi.lua")
+        sleep(2)
+        shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/music.lua osapps/music.lua")
         return
     end
 
@@ -210,3 +214,4 @@ if not ok then
     os.pullEvent("key")
     shell.run("shell")
 end
+
