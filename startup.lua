@@ -108,6 +108,7 @@ function runApp(name)
 
     if not fs.exists(path) then
         appWin.write("App nicht gefunden: "..name)
+        appWin.setBackgroundColor(colors.black)
         shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/scada_setup.lua osapps/scada_setup.lua")
         sleep(2)
         shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/ccmsi.lua osapps/ccmsi.lua")
@@ -216,6 +217,7 @@ if not ok then
     os.pullEvent("key")
     shell.run("shell")
 end
+
 
 
 
