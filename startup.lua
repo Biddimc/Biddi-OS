@@ -113,6 +113,8 @@ function runApp(name)
         shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/ccmsi.lua osapps/ccmsi.lua")
         sleep(2)
         shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/music.lua osapps/music.lua")
+        sleep(2)
+        reboot()
         return
     end
 
@@ -214,4 +216,5 @@ if not ok then
     os.pullEvent("key")
     shell.run("shell")
 end
+
 
