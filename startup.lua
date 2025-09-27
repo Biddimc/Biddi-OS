@@ -6,24 +6,12 @@ local term, fs, shell, os, window, colors =
       term, fs, shell, os, window, colors
 
 ------------------------ Monitor ------------------------------
--- ✨NEU: Terminal bleibt immer aktiv, Monitor wird leise geprüft
-local realTerm = term.current()       -- echtes Terminal sichern
 local mon = peripheral.find("monitor")
-local screen = realTerm               -- immer Terminal als Basis
-local w, h = screen.getSize()
-
--- ✨NEU: Monitorprüfung OHNE Ausgabe
-local function checkMonitor()
-    local newMon = peripheral.find("monitor")
-    if newMon ~= mon then
-        mon = newMon
-        if mon then
-            mon.setTextScale(1)
-            mon.clear()
-            mon.setCursorPos(1,1)
-        end
-    end
+if mon then
+    term.redirect(mon)
 end
+local screen = term.current()
+local w, h = screen.getSize()
 
 ---------------------------------------------------------------
 -- Konfiguration
@@ -66,31 +54,25 @@ local function appCenterWrite(y, text)
     appWin.write(text)
 end
 
--- ✨NEU: Taskbar gleichzeitig auf Terminal und Monitor zeichnen
 local function drawTaskbar()
     w, h = screen.getSize()
-    local targets = { realTerm }
-    if mon then table.insert(targets, mon) end
-
-    for _, t in ipairs(targets) do
-        t.setBackgroundColor(colors.lightGray)
-        t.setTextColor(colors.white)
-        for y = 1, h do
-            t.setCursorPos(1, y)
-            t.write(string.rep(" ", BAR_WIDTH))
-        end
-        local yPos = 2
-        for _, b in ipairs(buttons) do
-            if yPos <= h then
-                t.setCursorPos(2, yPos)
-                local lbl = #b.label > BAR_WIDTH-2 and b.label:sub(1, BAR_WIDTH-2) or b.label
-                t.write(lbl .. string.rep(" ", BAR_WIDTH-2-#lbl))
-            end
-            yPos = yPos + 2
-        end
-        t.setBackgroundColor(colors.white)
-        t.setTextColor(colors.black)
+    screen.setBackgroundColor(colors.lightGray)
+    screen.setTextColor(colors.white)
+    for y = 1, h do
+        screen.setCursorPos(1, y)
+        screen.write(string.rep(" ", BAR_WIDTH))
     end
+    local yPos = 2
+    for _, b in ipairs(buttons) do
+        if yPos <= h then
+            screen.setCursorPos(2, yPos)
+            local lbl = #b.label > BAR_WIDTH-2 and b.label:sub(1, BAR_WIDTH-2) or b.label
+            screen.write(lbl .. string.rep(" ", BAR_WIDTH-2-#lbl))
+        end
+        yPos = yPos + 2
+    end
+    screen.setBackgroundColor(colors.white)
+    screen.setTextColor(colors.black)
 end
 
 local function detectButton(mx, my)
@@ -112,7 +94,10 @@ function runScript(name)
     shell.run("osapps\\ccmsi install rtu main")
     sleep(2)
     shell.run("y")
+
+
 end
+
 
 function runApp(name)
     local path = fs.combine(APP_DIR, name .. ".lua")
@@ -134,6 +119,7 @@ function runApp(name)
         return
     end
 
+    -- App in Coroutine starten, damit Taskbar parallel geprüft wird
     local function appRoutine()
         local ok, err = pcall(function()
             term.redirect(appWin)
@@ -147,13 +133,17 @@ function runApp(name)
         end
     end
 
+    -- Taskbar-Listener – erlaubt Buttons während App läuft
     local function barRoutine()
         while true do
             local ev = { os.pullEvent() }
             if ev[1] == "mouse_click" or ev[1] == "monitor_touch" then
+                -- Korrektur: mx/my immer aus den letzten beiden Werten
                 local mx, my = ev[#ev-1], ev[#ev]
                 local btn = detectButton(mx, my)
-                if btn then return btn end
+                if btn then
+                    return btn  -- Button geklickt -> App verlassen
+                end
             elseif ev[1] == "monitor_resize" then
                 drawTaskbar()
                 appWin = createAppWindow()
@@ -163,7 +153,7 @@ function runApp(name)
 
     drawTaskbar()
     parallel.waitForAny(appRoutine, barRoutine)
-    drawTaskbar()
+    drawTaskbar()  -- Taskbar nach App-Ende neu zeichnen
 end
 
 function shellWindow()
@@ -191,13 +181,14 @@ local function main()
     appCenterWrite(math.floor(h/2), "Nichts offen...")
 
     while true do
-        checkMonitor()  -- ✨NEU: Monitor-Check ohne Ausgabe
         local ev = { os.pullEvent() }
 
         if ev[1] == "mouse_click" or ev[1] == "monitor_touch" then
             local mx, my = ev[#ev-1], ev[#ev]
             local btn = detectButton(mx, my)
-            if btn then btn.action() end
+            if btn then
+                btn.action()
+            end
 
         elseif ev[1] == "monitor_resize" then
             drawTaskbar()
@@ -226,3 +217,9 @@ if not ok then
     os.pullEvent("key")
     shell.run("shell")
 end
+
+
+
+
+
+
