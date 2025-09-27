@@ -18,7 +18,7 @@ local w, h = screen.getSize()
 ---------------------------------------------------------------
 local APP_DIR = "osapps"
 if not fs.exists(APP_DIR) then fs.makeDir(APP_DIR) end
-local BAR_WIDTH = 10
+local BAR_WIDTH = 9
 
 -- Buttons in der Taskbar
 local buttons = {
@@ -217,6 +217,7 @@ if not ok then
     os.pullEvent("key")
     shell.run("shell")
 end
+
 
 
 
