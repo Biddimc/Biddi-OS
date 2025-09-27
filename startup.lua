@@ -205,7 +205,6 @@ local function main()
             drawTaskbar()
             appWin = createAppWindow()
             appWin.clear()
-            appCenterWrite(math.floor(h/2), "Monitor angepasst")
 
         elseif ev[1] == "key" then
             local k = keys.getName(ev[2])
@@ -228,4 +227,5 @@ if not ok then
     os.pullEvent("key")
     shell.run("shell")
 end
+
 
