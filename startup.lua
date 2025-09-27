@@ -6,19 +6,13 @@ local term, fs, shell, os, window, colors =
       term, fs, shell, os, window, colors
 
 ------------------------ Monitor ------------------------------
--- ✨NEU: Terminal immer aktiv halten & Monitor ständig prüfen
+-- ✨NEU: Terminal bleibt immer aktiv, Monitor wird leise geprüft
 local realTerm = term.current()       -- echtes Terminal sichern
 local mon = peripheral.find("monitor")
 local screen = realTerm               -- immer Terminal als Basis
 local w, h = screen.getSize()
 
--- Funktion: Text/Funktionen gleichzeitig auf Terminal & Monitor ausführen
-local function dualWrite(fn)
-    fn(realTerm)
-    if mon then fn(mon) end
-end
-
--- ✨NEU: prüft regelmäßig ob ein Monitor verfügbar ist
+-- ✨NEU: Monitorprüfung OHNE Ausgabe
 local function checkMonitor()
     local newMon = peripheral.find("monitor")
     if newMon ~= mon then
@@ -30,6 +24,7 @@ local function checkMonitor()
         end
     end
 end
+
 ---------------------------------------------------------------
 -- Konfiguration
 ---------------------------------------------------------------
@@ -71,10 +66,13 @@ local function appCenterWrite(y, text)
     appWin.write(text)
 end
 
--- ✨NEU: Taskbar wird auf Terminal UND Monitor gezeichnet
+-- ✨NEU: Taskbar gleichzeitig auf Terminal und Monitor zeichnen
 local function drawTaskbar()
     w, h = screen.getSize()
-    dualWrite(function(t)
+    local targets = { realTerm }
+    if mon then table.insert(targets, mon) end
+
+    for _, t in ipairs(targets) do
         t.setBackgroundColor(colors.lightGray)
         t.setTextColor(colors.white)
         for y = 1, h do
@@ -92,7 +90,7 @@ local function drawTaskbar()
         end
         t.setBackgroundColor(colors.white)
         t.setTextColor(colors.black)
-    end)
+    end
 end
 
 local function detectButton(mx, my)
@@ -193,7 +191,7 @@ local function main()
     appCenterWrite(math.floor(h/2), "Nichts offen...")
 
     while true do
-        checkMonitor()  -- ✨NEU: Monitor-Check bei jedem Schleifendurchlauf
+        checkMonitor()  -- ✨NEU: Monitor-Check ohne Ausgabe
         local ev = { os.pullEvent() }
 
         if ev[1] == "mouse_click" or ev[1] == "monitor_touch" then
@@ -205,6 +203,7 @@ local function main()
             drawTaskbar()
             appWin = createAppWindow()
             appWin.clear()
+            appCenterWrite(math.floor(h/2), "Monitor angepasst")
 
         elseif ev[1] == "key" then
             local k = keys.getName(ev[2])
@@ -227,5 +226,3 @@ if not ok then
     os.pullEvent("key")
     shell.run("shell")
 end
-
-
