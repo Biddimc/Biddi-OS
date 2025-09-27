@@ -1,80 +1,120 @@
 --============================================================--
--- MiniOS v0.6 – Taskbar klickbar, auch wenn App läuft
+-- MiniOS v0.9 – Multi-Monitor-Multitasking + Taskbar im Terminal
 --============================================================--
 
-local term, fs, shell, os, window, colors =
-      term, fs, shell, os, window, colors
-
------------------------- Monitor ------------------------------
-local mon = peripheral.find("monitor")
-if mon then
-    term.redirect(mon)
-end
-local screen = term.current()
-local w, h = screen.getSize()
+local term, fs, shell, os, window, colors, peripheral, keys, parallel =
+      term, fs, shell, os, window, colors, peripheral, keys, parallel
 
 ---------------------------------------------------------------
--- Konfiguration
+-- Monitor-Erkennung
+-- Findet alle angeschlossenen Monitore und speichert sie
+-- als { side, mon } in einer Liste für den gezielten Zugriff.
+---------------------------------------------------------------
+local monitors = {}
+for _, side in ipairs({"left","right","top","bottom","front","back"}) do
+    if peripheral.getType(side) == "monitor" then
+        table.insert(monitors, {side=side, mon=peripheral.wrap(side)})
+    end
+end
+
+---------------------------------------------------------------
+-- Terminal als Hauptanzeige für Taskbar
+---------------------------------------------------------------
+local terminal = term.current()
+local tw, th = terminal.getSize()
+local BAR_WIDTH = 10
+
+---------------------------------------------------------------
+-- App-Verzeichnis anlegen
 ---------------------------------------------------------------
 local APP_DIR = "osapps"
 if not fs.exists(APP_DIR) then fs.makeDir(APP_DIR) end
-local BAR_WIDTH = 10
 
--- Buttons in der Taskbar
+---------------------------------------------------------------
+-- Buttons für die Taskbar
+-- target = "terminal" oder "monitor1", "monitor2", ...
+---------------------------------------------------------------
 local buttons = {
-    { name="SCADA",   label="SCADA",  action=function() runApp("scada_setup") end },
-    { name="music",   label="Music",  action=function() runApp("music") end },
-    { name="shell",   label="Shell",  action=function() shellWindow() end },
-    { name="reboot",  label="Reboot", action=function() os.reboot() end },
-    { name="off",     label="Off",    action=function() os.shutdown() end },
+    { name="SCADA", label="SCADA", target="monitor1",
+      action=function(t) launchApp("scada_setup", t) end },
+    { name="music", label="Music", target="monitor2",
+      action=function(t) launchApp("music", t) end },
+    { name="shell", label="Shell", target="terminal",
+      action=function(t) launchApp("shell", t) end },
+    { name="reboot",label="Reboot",target="terminal",
+      action=function() os.reboot() end },
+    { name="off",   label="Off",   target="terminal",
+      action=function() os.shutdown() end },
 }
 
 ---------------------------------------------------------------
--- App-Fenster
+-- Laufende Apps
+-- Struktur: running[<target>] = { win = Fenster, coro = Coroutine }
+-- Jede Zielanzeige (Monitor oder Terminal) kann ihre eigene App haben.
 ---------------------------------------------------------------
-local function createAppWindow()
-    w, h = screen.getSize()
-    return window.create(screen,
-        BAR_WIDTH + 1, 1,
-        math.max(1, w - BAR_WIDTH), h, true)
+local running = {}
+
+---------------------------------------------------------------
+-- Fenster erstellen
+-- Nutzt entweder Terminal oder den angegebenen Monitor.
+-- Gibt das Ziel-Terminal und ein Fensterobjekt zurück.
+---------------------------------------------------------------
+local function createAppWindow(target)
+    local scr = terminal
+    if target:match("monitor") then
+        local num = tonumber(target:match("%d+"))
+        if monitors[num] then
+            scr = monitors[num].mon
+        else
+            -- Fallback, wenn Monitor fehlt
+            terminal.setCursorPos(1, th)
+            terminal.setTextColor(colors.red)
+            terminal.write("Monitor "..num.." nicht gefunden -> Terminal genutzt. ")
+            terminal.setTextColor(colors.white)
+        end
+    end
+    local w2, h2 = scr.getSize()
+    return scr, window.create(scr, BAR_WIDTH + 1, 1,
+                               math.max(1, w2 - BAR_WIDTH), h2, true)
 end
 
-local appWin = createAppWindow()
-appWin.setBackgroundColor(colors.white)
-appWin.setTextColor(colors.black)
-appWin.clear()
-
 ---------------------------------------------------------------
--- Hilfsfunktionen
+-- Zentrierter Text in ein Fenster
 ---------------------------------------------------------------
-local function appCenterWrite(y, text)
-    local aw = ({ appWin.getSize() })[1]
+local function centerWrite(win, y, text)
+    local aw = ({ win.getSize() })[1]
     local x = math.max(1, math.floor((aw - #text) / 2) + 1)
-    appWin.setCursorPos(x, y)
-    appWin.write(text)
+    win.setCursorPos(x, y)
+    win.write(text)
 end
 
+---------------------------------------------------------------
+-- Taskbar im Terminal zeichnen
+---------------------------------------------------------------
 local function drawTaskbar()
-    w, h = screen.getSize()
-    screen.setBackgroundColor(colors.lightGray)
-    screen.setTextColor(colors.white)
-    for y = 1, h do
-        screen.setCursorPos(1, y)
-        screen.write(string.rep(" ", BAR_WIDTH))
+    local w2,h2 = terminal.getSize()
+    terminal.setBackgroundColor(colors.lightGray)
+    terminal.setTextColor(colors.white)
+    for y = 1, h2 do
+        terminal.setCursorPos(1, y)
+        terminal.write(string.rep(" ", BAR_WIDTH))
     end
     local yPos = 2
     for _, b in ipairs(buttons) do
-        if yPos <= h then
-            screen.setCursorPos(2, yPos)
+        if yPos <= h2 then
+            terminal.setCursorPos(2, yPos)
             local lbl = #b.label > BAR_WIDTH-2 and b.label:sub(1, BAR_WIDTH-2) or b.label
-            screen.write(lbl .. string.rep(" ", BAR_WIDTH-2-#lbl))
+            terminal.write(lbl .. string.rep(" ", BAR_WIDTH-2-#lbl))
         end
         yPos = yPos + 2
     end
-    screen.setBackgroundColor(colors.white)
-    screen.setTextColor(colors.black)
+    terminal.setBackgroundColor(colors.black)
+    terminal.setTextColor(colors.white)
 end
 
+---------------------------------------------------------------
+-- Prüft, ob ein Klick auf die Taskbar erfolgt ist
+---------------------------------------------------------------
 local function detectButton(mx, my)
     if mx <= BAR_WIDTH then
         local yPos = 2
@@ -87,114 +127,104 @@ local function detectButton(mx, my)
 end
 
 ---------------------------------------------------------------
--- App-Management
+-- App starten
+-- Mehrere Apps können parallel laufen (eine pro target).
 ---------------------------------------------------------------
-function runScript(name)
-    appWin.setBackgroundColor(colors.black)
-    shell.run("osapps\\ccmsi install rtu main")
-    sleep(2)
-    shell.run("y")
-
-
-end
-
-
-function runApp(name)
-    local path = fs.combine(APP_DIR, name .. ".lua")
-    appWin = createAppWindow()
-    appWin.setBackgroundColor(colors.black)
-    appWin.clear()
-    appWin.setCursorPos(1,1)
-
-    if not fs.exists(path) then
-        appWin.write("App nicht gefunden: "..name)
-        appWin.setBackgroundColor(colors.black)
-        shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/scada_setup.lua osapps/scada_setup.lua")
-        sleep(0.25)
-        shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/ccmsi.lua osapps/ccmsi.lua")
-        sleep(0.25)
-        shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/music.lua osapps/music.lua")
-        sleep(0.25)
-        os.reboot()
+function launchApp(name, target)
+    -- Prüfen ob App schon auf diesem Ziel läuft
+    if running[target] then
+        -- App beenden (erneutes Klicken beendet sie)
+        running[target].kill = true
         return
     end
 
-    -- App in Coroutine starten, damit Taskbar parallel geprüft wird
-    local function appRoutine()
-        local ok, err = pcall(function()
-            term.redirect(appWin)
-            shell.run(path)
-        end)
-        term.redirect(screen)
-        if not ok then
-            appWin.setTextColor(colors.white)
-            appWin.setCursorPos(1,1)
-            appWin.write("Fehler:\n"..err)
-        end
-    end
-
-    -- Taskbar-Listener – erlaubt Buttons während App läuft
-    local function barRoutine()
-        while true do
-            local ev = { os.pullEvent() }
-            if ev[1] == "mouse_click" or ev[1] == "monitor_touch" then
-                -- Korrektur: mx/my immer aus den letzten beiden Werten
-                local mx, my = ev[#ev-1], ev[#ev]
-                local btn = detectButton(mx, my)
-                if btn then
-                    return btn  -- Button geklickt -> App verlassen
-                end
-            elseif ev[1] == "monitor_resize" then
-                drawTaskbar()
-                appWin = createAppWindow()
-            end
-        end
-    end
-
+    local scr, win = createAppWindow(target)
     drawTaskbar()
-    parallel.waitForAny(appRoutine, barRoutine)
-    drawTaskbar()  -- Taskbar nach App-Ende neu zeichnen
-end
+    win.setBackgroundColor(colors.black)
+    win.clear()
+    win.setCursorPos(1,1)
 
-function shellWindow()
-    appWin = createAppWindow()
-    appWin.clear()
-    appWin.setCursorPos(1,1)
-    term.redirect(appWin)
-    shell.run("shell")
-    term.redirect(screen)
+    local path = fs.combine(APP_DIR, name .. ".lua")
+    if not fs.exists(path) then
+        win.write("App nicht gefunden: "..name)
+        return
+    end
+
+    -- Coroutine für die App
+    local co = coroutine.create(function()
+        local ok, err = pcall(function()
+            term.redirect(win)
+            if name == "shell" then
+                shell.run("shell")
+            else
+                shell.run(path)
+            end
+        end)
+        term.redirect(scr)
+        if not ok then
+            win.setTextColor(colors.white)
+            win.setCursorPos(1,1)
+            win.write("Fehler:\n"..err)
+        end
+    end)
+
+    running[target] = { win = win, coro = co, kill = false }
 end
 
 ---------------------------------------------------------------
--- Boot & Hauptschleife
+-- Hintergrundprozess für alle laufenden Apps
+-- Führt die Coroutinen weiter, solange sie nicht beendet sind.
+---------------------------------------------------------------
+local function multitasker()
+    while true do
+        for tgt, app in pairs(running) do
+            if app.kill then
+                running[tgt] = nil
+            elseif coroutine.status(app.coro) ~= "dead" then
+                local ok, err = coroutine.resume(app.coro)
+                if not ok then
+                    app.win.setTextColor(colors.red)
+                    app.win.setCursorPos(1,1)
+                    app.win.write("Crash:\n"..err)
+                    running[tgt] = nil
+                end
+            else
+                running[tgt] = nil
+            end
+        end
+        os.sleep(0.05) -- kleine Pause, damit CPU nicht voll ausgelastet wird
+    end
+end
+
+---------------------------------------------------------------
+-- Bootscreen
 ---------------------------------------------------------------
 local function bootScreen()
     drawTaskbar()
-    appCenterWrite(math.floor(h/2), "Biddi OS v0.6 startet...")
+    local win = window.create(terminal, BAR_WIDTH+1,1,tw-BAR_WIDTH,th,true)
+    centerWrite(win, math.floor(th/2), "Biddi OS v0.9 startet...")
     os.sleep(1.5)
 end
 
+---------------------------------------------------------------
+-- Hauptschleife: Eingaben für Taskbar verarbeiten
+---------------------------------------------------------------
 local function main()
     bootScreen()
     drawTaskbar()
-    appWin.clear()
-    appCenterWrite(math.floor(h/2), "Nichts offen...")
+    local idleWin = window.create(terminal, BAR_WIDTH+1,1,tw-BAR_WIDTH,th,true)
+    centerWrite(idleWin, math.floor(th/2), "Nichts offen...")
 
     while true do
         local ev = { os.pullEvent() }
 
-        if ev[1] == "mouse_click" or ev[1] == "monitor_touch" then
-            local mx, my = ev[#ev-1], ev[#ev]
+        if ev[1] == "mouse_click" then
+            local mx, my = ev[3], ev[4]
             local btn = detectButton(mx, my)
-            if btn then
-                btn.action()
-            end
+            if btn then btn.action(btn.target) end
 
-        elseif ev[1] == "monitor_resize" then
+        elseif ev[1] == "term_resize" then
             drawTaskbar()
-            appWin = createAppWindow()
-            appWin.clear()
-            appCenterWrite(math.floor(h/2), "Monitor angepasst")
 
         elseif ev[1] == "key" then
             local k = keys.getName(ev[2])
@@ -205,21 +235,18 @@ end
 
 ---------------------------------------------------------------
 -- Start
+-- Nutzt parallel.waitForAny, um Multitasking und Eingaben
+-- gleichzeitig zu ermöglichen.
 ---------------------------------------------------------------
-local ok, err = pcall(main)
+local ok, err = pcall(function()
+    parallel.waitForAny(main, multitasker)
+end)
 if not ok then
-    term.redirect(screen)
+    term.redirect(terminal)
     term.clear()
     term.setCursorPos(1,1)
-    print("Biddi OS-Fehler:")
-    print(err)
+    print("Biddi OS-Fehler:\n"..err)
     print("Taste für Shell drücken.")
     os.pullEvent("key")
     shell.run("shell")
 end
-
-
-
-
-
-
