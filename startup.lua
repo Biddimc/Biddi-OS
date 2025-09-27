@@ -27,9 +27,6 @@ local function checkMonitor()
             mon.setTextScale(1)
             mon.clear()
             mon.setCursorPos(1,1)
-            dualWrite(function(t) t.write("[Monitor verbunden]\n") end)
-        else
-            dualWrite(function(t) t.write("[Monitor getrennt]\n") end)
         end
     end
 end
@@ -231,3 +228,4 @@ if not ok then
     os.pullEvent("key")
     shell.run("shell")
 end
+
