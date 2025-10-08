@@ -113,7 +113,7 @@ function runApp(name)
         shell.run("wget https://raw.githubusercontent.com/SirEndii/Lua-Projects/master/src/installer.lua installer")
         sleep(0.1)
         shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/ae2_install.luaosapps/ae2_install.lua")
-        sleep(0.1
+        sleep(0.1)
         shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/scada_setup.lua osapps/scada_setup.lua")
         sleep(0.1)
         shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/ccmsi.lua osapps/ccmsi.lua")
@@ -222,6 +222,7 @@ if not ok then
     os.pullEvent("key")
     shell.run("shell")
 end
+
 
 
 
