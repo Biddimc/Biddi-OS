@@ -110,11 +110,11 @@ function runApp(name)
         appWin.write("App nicht gefunden: "..name)
         appWin.setBackgroundColor(colors.black)
         shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/scada_setup.lua osapps/scada_setup.lua")
-        sleep(0.25)
+        sleep(0.1)
         shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/ccmsi.lua osapps/ccmsi.lua")
-        sleep(0.25)
+        sleep(0.1)
         shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/music.lua osapps/music.lua")
-        sleep(0.25)
+        sleep(0.1)
         os.reboot()
         return
     end
@@ -217,6 +217,7 @@ if not ok then
     os.pullEvent("key")
     shell.run("shell")
 end
+
 
 
 
