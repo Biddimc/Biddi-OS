@@ -176,7 +176,7 @@ end
 local function bootScreen()
     drawTaskbar()
     appCenterWrite(math.floor(h/2), "Biddi OS v0.6 startet...")
-    os.sleep(1.5)
+    os.sleep(0.5)
 end
 
 local function main()
@@ -222,6 +222,7 @@ if not ok then
     os.pullEvent("key")
     shell.run("shell")
 end
+
 
 
 
