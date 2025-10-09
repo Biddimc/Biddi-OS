@@ -25,6 +25,7 @@ local buttons = {
     { name="SCADA",   label="SCADA",  action=function() runApp("scada_setup") end },
     { name="AE2",     label="AE2",    action=function() runApp("ae2_install") end},  
     { name="music",   label="Music",  action=function() runApp("music") end },
+    { name="sonstige" label="Sonstige" action=function() runApp("sonstige") end}
     { name="shell",   label="Shell",  action=function() shellWindow() end },
     { name="reboot",  label="Reboot", action=function() os.reboot() end },
     { name="off",     label="Off",    action=function() os.shutdown() end },
@@ -110,9 +111,11 @@ function runApp(name)
     if not fs.exists(path) then
         appWin.write("App nicht gefunden: "..name)
         appWin.setBackgroundColor(colors.black)
+        shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/other_install.lua osapps/sonstige.lua")
+        sleep(0.1)
         shell.run("wget https://raw.githubusercontent.com/SirEndii/Lua-Projects/master/src/installer.lua installer")
         sleep(0.1)
-        shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/ae2_install.luaosapps/ae2_install.lua")
+        shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/ae2_install.lua osapps/ae2_install.lua")
         sleep(0.1)
         shell.run("wget https://raw.githubusercontent.com/Biddimc/BiddiOS/refs/heads/main/osapps/scada_setup.lua osapps/scada_setup.lua")
         sleep(0.1)
@@ -222,6 +225,7 @@ if not ok then
     os.pullEvent("key")
     shell.run("shell")
 end
+
 
 
 
