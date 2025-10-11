@@ -70,4 +70,6 @@ while true do
     for name, count in pairs(summary) do
         monPrint(mon, formatItemName(name) .. " x" .. count)
     end
+
+    sleep(3)
 end
