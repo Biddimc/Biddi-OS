@@ -56,16 +56,18 @@ function monPrint(mon, text)
     mon.setCursorPos(4, y + 1)
 end
 
-for _, inv in ipairs(inventories) do
-    for slot, item in pairs(inv.list()) do
-        summary[item.name] = (summary[item.name] or 0) + item.count
+while true do
+    for _, inv in ipairs(inventories) do
+        for slot, item in pairs(inv.list()) do
+            summary[item.name] = (summary[item.name] or 0) + item.count
+        end
     end
-end
-
-mon.clear()
-drawBox(2, monX - 1, 3, monY - 1, "Items", colors.gray, colors.lightGray)
-mon.setCursorPos(4, 5)
-
-for name, count in pairs(summary) do
-    monPrint(mon, formatItemName(name) .. " x" .. count)
+    
+    mon.clear()
+    drawBox(2, monX - 1, 3, monY - 1, "Items", colors.gray, colors.lightGray)
+    mon.setCursorPos(4, 5)
+    
+    for name, count in pairs(summary) do
+        monPrint(mon, formatItemName(name) .. " x" .. count)
+    end
 end
