@@ -57,6 +57,8 @@ function monPrint(mon, text)
 end
 
 while true do
+    summary = {} -- ✅ Tabelle leeren, bevor neu gezählt wird
+
     for _, inv in ipairs(inventories) do
         for slot, item in pairs(inv.list()) do
             summary[item.name] = (summary[item.name] or 0) + item.count
